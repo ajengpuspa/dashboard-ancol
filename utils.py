@@ -198,3 +198,8 @@ def load_data(year, event, unit):
         df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=unit)
         return df
     return None
+
+def img_to_base64(path):
+                img_bytes = Path(path).read_bytes()
+                encoded = base64.b64encode(img_bytes).decode()
+                return f"data:image/png;base64,{encoded}"
