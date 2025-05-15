@@ -6,7 +6,7 @@ import altair as alt
 import pandas as pd
 from pathlib import Path
 import base64
-from utils import calculate_scores, get_value_counts_percentage, select_data, make_metric_card, altair_barh_percent, sentiment_card, load_archive, load_data
+from utils import calculate_scores, get_value_counts_percentage, select_data, make_metric_card, altair_barh_percent, sentiment_card, load_archive, load_data, img_to_base64
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -218,13 +218,14 @@ if (
                     ),
                     width=550,
                     height=350
-                ).configure_legend(
-                    orient='bottom',
-                    direction='horizontal',
-                    title=None
                 )
 
                 st.altair_chart(chart, use_container_width=True)
+                img_base64 = img_to_base64(Path(__file__).parent / "img" / "combo.png")
+                st.markdown(
+                    f"<div style='text-align:center;'><img src='{img_base64}' width='200'></div>",
+                    unsafe_allow_html=True
+                )
 
             with g5:
                 df_filtered = select_data(df2, selected_year, selected_event, selected_unit)
@@ -233,69 +234,76 @@ if (
                     df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
 
                 df_filtered["Event_Year"] = df_filtered["Event"].astype(str) + " " + df_filtered["Tahun"].astype(str)
-
-                color_scale = alt.Scale(
-                    domain=["Detractor", "Passive", "Promoter"],
-                    range=["#EA4335", "#FFD966", "#73B855"]
-                 )
+                df_filtered = df_filtered.sort_values(by=["Tahun", "Event"], ascending=[False, False]).reset_index(drop=True)
+                df_filtered["Index"] = df_filtered.index
 
                 nps_long = df_filtered.melt(
-                    id_vars=["Event_Year"],
+                    id_vars=["Event_Year", "Index"],
                     value_vars=["Detractor", "Passive", "Promoter"],
                     var_name="Kategori",
                     value_name="Persentase"
                 )
-                nps_long['Index'] = nps_long.index
+
+                color_scale = alt.Scale(
+                    domain=["Detractor", "Passive", "Promoter"],
+                    range=["#EA4335", "#FFD966", "#73B855"]
+                )
 
                 bar = alt.Chart(nps_long).mark_bar().encode(
-                        y=alt.Y("Event_Year:N", title="", axis=alt.Axis(labelAngle=0, grid=False), sort=alt.EncodingSortField(field="Index", order="descending")),
-                        x=alt.X("Persentase:Q", stack="zero", title=None, scale=alt.Scale(domain=[0, 100])),
-                        color=alt.Color("Kategori:N", scale=color_scale, legend=None, title=None),
-                        tooltip=["Event_Year", "Persentase"]
-                ).properties(
-                        width=550,
-                        height=350,
-                        title=alt.TitleParams(
-                            text=f"Distribusi NPS - {selected_unit}",
-                            fontSize=20,
-                            anchor='middle'
-                        )
+                    y=alt.Y("Event_Year:N", title="", axis=alt.Axis(labelAngle=0, grid=False),
+                            sort=alt.EncodingSortField(field="Index", order="descending")),
+                    x=alt.X("Persentase:Q", stack="zero", title=None, scale=alt.Scale(domain=[0, 100])),
+                    color=alt.Color("Kategori:N", scale=color_scale, legend=None),
+                    tooltip=["Event_Year", "Kategori", "Persentase"]
                 )
 
-                bar_text = alt.Chart(nps_long).mark_text(
-                        align='right',
-                        baseline='middle',
-                        dx=-5,
-                        color='white',
-                        fontSize=11
+                # Label dalam bar (< 5)
+                bar_text_outside = alt.Chart(nps_long[nps_long["Persentase"] < 5]).mark_text(
+                    align='center',
+                    baseline='middle',
+                    color='#393737',
+                    fontSize=11
                 ).encode(
-                        y=alt.Y("Event_Year:N", sort=alt.EncodingSortField(field="Index", order="descending")),
-                        x=alt.X("Persentase:Q", stack="zero"),
-                        text=alt.Text("Persentase:Q", format=".1f")
+                    y=alt.Y("Event_Year:N", sort=alt.EncodingSortField(field="Index", order="descending")),
+                    x=alt.X("Persentase:Q", stack="center"),
+                    text=alt.Text("Persentase:Q", format=".1f")
                 )
 
-                nps_label = alt.Chart(nps_long).mark_text(
-                        align="left",
-                        baseline="middle",
-                        dx=5,
-                        color="black",
-                        fontWeight="bold"
+                # Label di luar bar (>= 5)
+                bar_text_inside = alt.Chart(nps_long[nps_long["Persentase"] >= 5]).mark_text(
+                    align='right',
+                    baseline='middle',
+                    dx=-5,
+                    color='#393737',
+                    fontSize=11
                 ).encode(
-                        y=alt.Y("Event_Year:N", sort=alt.EncodingSortField(field="Index", order="descending")),
-                        x=alt.X("Total:Q"),
-                        text=alt.Text("NPS:Q", format=".1f")
+                    y=alt.Y("Event_Year:N", sort=alt.EncodingSortField(field="Index", order="descending")),
+                    x=alt.X("Persentase:Q", stack="zero"),
+                    text=alt.Text("Persentase:Q", format=".1f")
                 )
 
-                final_chart = (bar + bar_text + nps_label).configure_axis(
-                        labelFontSize=12,
-                        titleFontSize=14,
-                        grid=False
+                final_chart = (bar + bar_text_inside + bar_text_outside).properties(
+                    width=550,
+                    height=350,
+                    title=alt.TitleParams(
+                        text=f"Distribusi NPS - {selected_unit}",
+                        fontSize=20,
+                        anchor='middle'
+                    )
+                ).configure_axis(
+                    labelFontSize=12,
+                    titleFontSize=14,
+                    grid=False
                 )
 
                 st.altair_chart(final_chart, use_container_width=True)
+                img_base64 = img_to_base64(Path(__file__).parent / "img" / "nps.png")
+                st.markdown(
+                    f"<div style='text-align:center;'><img src='{img_base64}' width='200'></div>",
+                    unsafe_allow_html=True
+                )
+
             st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>📊 Sentimen</h3>", unsafe_allow_html=True)
-
-
             col8, col9, col10 = st.columns(3, gap="large")
             sentiment_counts = df['Sentiment'].value_counts()
             total = len(df['Sentiment'].dropna())
@@ -318,4 +326,3 @@ if (
                 st.warning("Kolom 'Alasan' tidak ditemukan dalam data.")
         else:
             st.error('Please select valid options for Year, Event, and Unit.')
-
