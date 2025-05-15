@@ -1,20 +1,16 @@
 import streamlit as st
 import plotly.express as px
 import matplotlib.pyplot as plt
-import seaborn as sns
 from IPython.display import display
 import altair as alt
 import pandas as pd
 from pathlib import Path
-import requests
-from io import BytesIO
-import io
 import base64
-import os
-from utils import calculate_scores, get_value_counts_percentage, select_data, make_metric_card, altair_barh_percent, sentiment_card, fetch_from_gas, load_archive, load_data
+from utils import calculate_scores, get_value_counts_percentage, select_data, make_metric_card, altair_barh_percent, sentiment_card, load_archive, load_data
 import warnings
 warnings.filterwarnings('ignore')
 
+#header
 st.set_page_config(page_title="CSI CLI NPS", page_icon=":bar_chart:", layout="wide")
 
 st.markdown(
@@ -32,19 +28,18 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-
+#dropdown
 years = ['Please select here', '2023', '2024', '2025']
 events = ['Please select here', 'Lebaran', 'Libur Sekolah', "Low Season", 'Nataru']
 units = ['Please select here', 'Ancol', 'Dufan', 'Atlantis', 'Sea World', 'Samudra', 'Jakarta Bird Land']
 
-# ---------- Session Defaults ----------
 for key, default in [("selected_unit", "Please select here"),
                      ("selected_year", "Please select here"),
                      ("selected_event", "Please select here")]:
     if key not in st.session_state:
         st.session_state[key] = default
 
-# ---------- Logo dan Judul ----------
+#title and logo
 unit_logo_map = {
     "Ancol": "ancol.png",
     "Dufan": "dufan.png",
@@ -79,7 +74,6 @@ with col2:
 with col3:
     st.selectbox('Choose Unit', units, index=units.index(st.session_state.selected_unit), key="selected_unit")
 
-
 if (
     st.session_state.selected_year != 'Please select here' and
     st.session_state.selected_event != 'Please select here' and
@@ -98,7 +92,6 @@ if (
             selected_event = st.session_state.selected_event
             selected_unit = st.session_state.selected_unit
 
-            # Ambil data tahun sebelumnya
             df1, df2 = load_archive()
             previous_row = df1[
                 (df1['Tahun'] == previous_year) &
@@ -106,7 +99,6 @@ if (
                 (df1['Unit'] == selected_unit)
             ]
 
-            # Hitung delta jika ada
             if not previous_row.empty:
                 delta_csi = result["CSI Score (%)"] - previous_row.iloc[0]["CSI"]
                 delta_cli = result["CLI Score (%)"] - previous_row.iloc[0]["CLI"]
@@ -114,19 +106,19 @@ if (
             else:
                 delta_csi = delta_cli = delta_nps = None
 
-            col3, col4, col5, col6 = st.columns((1, 1, 1, 1))
 
-            with col3:
+            col4, col5, col6, col7 = st.columns((1, 1, 1, 1))
+            with col4:
                 total_resp = int(df["Domisili"].count())
                 st.markdown(make_metric_card("Total Respondent", total_resp, icon="👥", color="#4e5b6e", big=True), unsafe_allow_html=True)
 
-            with col4:
+            with col5:
                 st.markdown(make_metric_card("CSI Score", f"{result['CSI Score (%)']:.2f}", delta=delta_csi, icon="🤩", color="#4e5b6e"), unsafe_allow_html=True)
 
-            with col5:
+            with col6:
                 st.markdown(make_metric_card("CLI Score", f"{result['CLI Score (%)']:.2f}", delta=delta_cli, icon="⭐️", color="#4e5b6e"), unsafe_allow_html=True)
 
-            with col6:
+            with col7:
                 st.markdown(make_metric_card("NPS Score", f"{result['NPS Score (%)']:.2f}", delta=delta_nps, icon="🗣️", color="#4e5b6e"), unsafe_allow_html=True)
 
 
@@ -135,24 +127,22 @@ if (
             resultusia = get_value_counts_percentage(df, 'Usia')
             resultcom = get_value_counts_percentage(df, 'Companions')
 
-            # DOMISILI
             with g1:
                 st.markdown("<h3 style='text-align: center;'>📍 Domisili</h3>", unsafe_allow_html=True)
                 chart1 = altair_barh_percent(df, 'Domisili')
                 st.altair_chart(chart1, use_container_width=True)
 
-            # USIA
             with g2:
                 st.markdown("<h3 style='text-align: center;'>👤 Usia</h3>", unsafe_allow_html=True)
                 chart2 = altair_barh_percent(df, 'Usia')
                 st.altair_chart(chart2, use_container_width=True)
 
-            # COMPANIONS
             with g3:
                 st.markdown("<h3 style='text-align: center;'>🧑‍🧑‍🧒 Companions</h3>", unsafe_allow_html=True)
                 chart3 = altair_barh_percent(df, 'Companions')
                 st.altair_chart(chart3, use_container_width=True)
             
+
             g4, g5 = st.columns((1,1), gap="medium")
             with g4:
                 df2_filtered = select_data(df1, selected_year, selected_event, selected_unit)
@@ -160,29 +150,26 @@ if (
                 for col in ["CSI", "CLI", "NPS"]:
                     df2_filtered[col] = pd.to_numeric(df2_filtered[col], errors='coerce')
 
-                # Buat kolom gabungan Event + Tahun
                 df2_filtered["Event_Year"] = df2_filtered["Event"].astype(str) + " " + df2_filtered["Tahun"].astype(str)
 
-                # Format panjang untuk legend
                 df_long = pd.melt(df2_filtered,
                                 id_vars=["Event_Year", "Tahun", "Event"],
                                 value_vars=["CSI", "CLI", "NPS"],
                                 var_name="Metric",
                                 value_name="Score")
 
-                # Skema warna legend
                 color_scale = alt.Scale(
                     domain=["CSI", "CLI", "NPS"],
                     range=["#1f77b4", "#ff7f0e", "#98c379"]
                 )
 
-                # Chart dasar
+                # base chart
                 base = alt.Chart(df_long).encode(
                     x=alt.X("Event_Year:N", title="", sort=df2_filtered["Event_Year"].tolist(),
                             axis=alt.Axis(labelAngle=0))
                 )
 
-                # Line untuk CSI dan CLI
+                # line CSI & CLI
                 line = base.transform_filter(
                     alt.FieldOneOfPredicate(field="Metric", oneOf=["CSI", "CLI"])
                 ).mark_line(point=True).encode(
@@ -191,7 +178,7 @@ if (
                     tooltip=["Tahun", "Event", "Metric", "Score"]
                 )
 
-                # Bar untuk NPS
+                # bar NPS
                 bar = base.transform_filter(
                     alt.datum.Metric == "NPS"
                 ).mark_bar(size=40).encode(
@@ -200,6 +187,7 @@ if (
                     tooltip=["Tahun", "Event", "Metric", "Score"]
                 )
 
+                # text
                 text_csi = base.transform_filter(
                     alt.datum.Metric == "CSI"
                 ).mark_text(align='center', dy=-15, color="#1f77b4").encode(
@@ -221,7 +209,7 @@ if (
                     text="Score:Q"
                 )
 
-                # Gabungkan semua layer
+                # combine
                 chart = alt.layer(bar, line, text_csi, text_cli, text_nps).properties(
                     title=alt.TitleParams(
                         text=f"CSI/CLI/NPS - {selected_unit}",
@@ -246,13 +234,11 @@ if (
 
                 df_filtered["Event_Year"] = df_filtered["Event"].astype(str) + " " + df_filtered["Tahun"].astype(str)
 
-                # Skala warna
                 color_scale = alt.Scale(
                     domain=["Detractor", "Passive", "Promoter"],
                     range=["#e74c3c", "#f1c40f", "#2ecc71"]
                  )
 
-                # Long format untuk stacked bar
                 nps_long = df_filtered.melt(
                     id_vars=["Event_Year"],
                     value_vars=["Detractor", "Passive", "Promoter"],
@@ -306,27 +292,22 @@ if (
                         grid=False
                 )
 
-                # Tampilkan di Streamlit
                 st.altair_chart(final_chart, use_container_width=True)
-        
-            # Header rata tengah
             st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>📊 Sentimen</h3>", unsafe_allow_html=True)
 
-            # 3 kolom untuk kartu + jarak besar antar elemen
-            g6, g7, g8 = st.columns(3, gap="large")
 
+            col8, col9, col10 = st.columns(3, gap="large")
             sentiment_counts = df['Sentiment'].value_counts()
             total = len(df['Sentiment'].dropna())
             pos = sentiment_counts.get('Positive', 0)
             neu = sentiment_counts.get('Neutral', 0)
             neg = sentiment_counts.get('Negative', 0)
 
-            # Tampilkan cards
-            with g6:
+            with col8:
                 st.markdown(sentiment_card("#00B894", "Positive", pos, pos/total), unsafe_allow_html=True)
-            with g7:
+            with col9:
                 st.markdown(sentiment_card("#0984E3", "Neutral", neu, neu/total), unsafe_allow_html=True)
-            with g8:
+            with col10:
                 st.markdown(sentiment_card("#D63031", "Negative", neg, neg/total), unsafe_allow_html=True)
 
             st.markdown("<h4 style='margin-top: 20px;'>📝 Detail Alasan</h4>", unsafe_allow_html=True)
