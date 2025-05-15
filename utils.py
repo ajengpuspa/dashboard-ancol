@@ -5,6 +5,7 @@ import altair as alt
 import requests
 import io
 import streamlit as st
+import urllib.parse
 
 def calculate_scores(df):
     result = {
@@ -174,7 +175,8 @@ def fetch_from_gas(file_type, year=None, event=None, unit=None):
     if event: params["event"] = event
     if unit: params["unit"] = unit
 
-    response = requests.get(SCRIPT_URL, params=params)
+    url = SCRIPT_URL + "?" + urllib.parse.urlencode(params)
+    response = requests.get(url)
     if response.ok and "File not found" not in response.text:
         return base64.b64decode(response.text)
     return None
