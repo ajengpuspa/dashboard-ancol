@@ -236,7 +236,7 @@ if (
 
                 color_scale = alt.Scale(
                     domain=["Detractor", "Passive", "Promoter"],
-                    range=["#e74c3c", "#f1c40f", "#2ecc71"]
+                    range=["#EA4335", "#FFD966", "#73B855"]
                  )
 
                 nps_long = df_filtered.melt(
