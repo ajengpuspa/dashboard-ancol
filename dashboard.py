@@ -99,49 +99,53 @@ if (
                 (df1['Unit'] == selected_unit)
             ]
 
+            def safe_delta(current, previous):
+                return current - previous if current is not None and previous is not None else None
+
             if not previous_row.empty:
-                delta_csi = result["CSI Score (%)"] - previous_row.iloc[0]["CSI"]
-                delta_cli = result["CLI Score (%)"] - previous_row.iloc[0]["CLI"]
-                delta_nps = result["NPS Score (%)"] - previous_row.iloc[0]["NPS"]
+                delta_csi = safe_delta(result.get("CSI Score (%)"), previous_row.iloc[0].get("CSI"))
+                delta_cli = safe_delta(result.get("CLI Score (%)"), previous_row.iloc[0].get("CLI"))
+                delta_nps = safe_delta(result.get("NPS Score (%)"), previous_row.iloc[0].get("NPS"))
             else:
                 delta_csi = delta_cli = delta_nps = None
 
+            def format_score(val):
+                return f"{val:.2f}" if val is not None else "-"
+
+            csi_display = format_score(result.get("CSI Score (%)"))
+            cli_display = format_score(result.get("CLI Score (%)"))
+            nps_display = format_score(result.get("NPS Score (%)"))
 
             col4, col5, col6, col7 = st.columns((1, 1, 1, 1))
             with col4:
-                total_resp = int(df["Domisili"].count())
+                total_resp = int(df["CSI"].count())
                 st.markdown(make_metric_card("Total Respondent", total_resp, icon="👥", color="#4e5b6e", big=True), unsafe_allow_html=True)
 
             with col5:
-                st.markdown(make_metric_card("CSI Score", f"{result['CSI Score (%)']:.2f}", delta=delta_csi, icon="🤩", color="#4e5b6e"), unsafe_allow_html=True)
+                st.markdown(make_metric_card("CSI Score", csi_display, delta=delta_csi, icon="🤩", color="#4e5b6e"), unsafe_allow_html=True)
 
             with col6:
-                st.markdown(make_metric_card("CLI Score", f"{result['CLI Score (%)']:.2f}", delta=delta_cli, icon="⭐️", color="#4e5b6e"), unsafe_allow_html=True)
+                st.markdown(make_metric_card("CLI Score", cli_display, delta=delta_cli, icon="⭐️", color="#4e5b6e"), unsafe_allow_html=True)
 
             with col7:
-                st.markdown(make_metric_card("NPS Score", f"{result['NPS Score (%)']:.2f}", delta=delta_nps, icon="🗣️", color="#4e5b6e"), unsafe_allow_html=True)
+                st.markdown(make_metric_card("NPS Score", nps_display, delta=delta_nps, icon="🗣️", color="#4e5b6e"), unsafe_allow_html=True)
 
+            st.write("")
+            target_columns = {
+                'Domisili': "📍 Domisili",
+                'Usia': "👤 Usia",
+                'Companions': "🧑‍🧑‍🧒 Companions"
+            }
 
-            g1, g2, g3 = st.columns((1,1,1), gap="medium")
-            resultdom = get_value_counts_percentage(df, 'Domisili')
-            resultusia = get_value_counts_percentage(df, 'Usia')
-            resultcom = get_value_counts_percentage(df, 'Companions')
+            available_columns = [(col, label) for col, label in target_columns.items() if col in df.columns]
+            if available_columns:
+                cols = st.columns(len(available_columns), gap="medium")
 
-            with g1:
-                st.markdown("<h3 style='text-align: center;'>📍 Domisili</h3>", unsafe_allow_html=True)
-                chart1 = altair_barh_percent(df, 'Domisili')
-                st.altair_chart(chart1, use_container_width=True)
-
-            with g2:
-                st.markdown("<h3 style='text-align: center;'>👤 Usia</h3>", unsafe_allow_html=True)
-                chart2 = altair_barh_percent(df, 'Usia')
-                st.altair_chart(chart2, use_container_width=True)
-
-            with g3:
-                st.markdown("<h3 style='text-align: center;'>🧑‍🧑‍🧒 Companions</h3>", unsafe_allow_html=True)
-                chart3 = altair_barh_percent(df, 'Companions')
-                st.altair_chart(chart3, use_container_width=True)
-            
+                for i, (col_name, label) in enumerate(available_columns):
+                    with cols[i]:
+                        st.markdown(f"<h3 style='text-align: center;'>{label}</h3>", unsafe_allow_html=True)
+                        chart = altair_barh_percent(df, col_name)
+                        st.altair_chart(chart, use_container_width=True)
 
             g4, g5 = st.columns((1,1), gap="medium")
             with g4:
