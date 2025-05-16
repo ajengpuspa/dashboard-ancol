@@ -11,7 +11,6 @@ def calculate_scores(df):
     result = {
         "CSI Score (%)": None,
         "CLI Score (%)": None,
-        "CES Score (%)": None,
         "NPS Score (%)": None,
         "Score 0-6 (Detractor) (%)": None,
         "Score 7-8 (Passive) (%)": None,
@@ -31,16 +30,10 @@ def calculate_scores(df):
         df_cli = df["CLI"].dropna()
         if not df_cli.empty:
             avg_cli = df_cli.mean()
-            result["CLI Score (%)"] = round((avg_cli - 1) / 9 * 100, 1)
-
-    if "CES" in df.columns:
-        df_ces = df["CES"].dropna()
-        if not df_ces.empty:
-            ces_counts = df_ces.value_counts()
-            total_rows = len(df_ces)
-            ces_proportion = ces_counts / total_rows
-            sum_5_4 = ces_proportion.get(5, 0) + ces_proportion.get(4, 0)
-            result["CES Score (%)"] = round(sum_5_4 * 100, 1)
+            if (df_cli > 5).any():
+                result["CLI Score (%)"] = round((avg_cli - 1) / 9 * 100, 1)
+            else:
+                result["CLI Score (%)"] = round((avg_cli - 1) / 4 * 100, 1)
 
     if "NPS" in df.columns:
         df_nps = df["NPS"].dropna()
@@ -117,7 +110,6 @@ def altair_barh_percent(df, column):
     value_counts = df[column].value_counts(dropna=False)
     percentages = (value_counts / value_counts.sum() * 100).round(2)
 
-    # Siapkan dataframe untuk Altair
     plot_df = percentages.reset_index()
     plot_df.columns = ['Kategori', 'Persentase (%)']
     plot_df['Label'] = plot_df['Persentase (%)'].astype(str) + '%'
@@ -200,6 +192,6 @@ def load_data(year, event, unit):
     return None
 
 def img_to_base64(path):
-    img_bytes = Path(path).read_bytes()
-    encoded = base64.b64encode(img_bytes).decode()
-    return f"data:image/png;base64,{encoded}"
+                img_bytes = Path(path).read_bytes()
+                encoded = base64.b64encode(img_bytes).decode()
+                return f"data:image/png;base64,{encoded}"
