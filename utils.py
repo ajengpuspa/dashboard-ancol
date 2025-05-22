@@ -124,7 +124,6 @@ def altair_barh_percent(df, column):
         height=400
     )
 
-    # Tambahkan label di bar
     text = alt.Chart(plot_df).mark_text(
         align="left",
         baseline="middle",
